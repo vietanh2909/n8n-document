@@ -1,0 +1,80 @@
+
+Function Requirement: FR-002 – Chi tiết khách sạn
+
+1. Tên chức năng:
+FR-002 – Hiển thị chi tiết khách sạn
+
+2. Mô tả tổng quan:
+Cho phép người dùng xem chi tiết thông tin một khách sạn bao gồm: mô tả, tiện nghi, phòng còn trống, hình ảnh, đánh giá, vị trí bản đồ.
+Dữ liệu được lấy từ nhiều bảng liên quan, có xử lý tổ hợp, gom nhóm và tính toán.
+
+3. Luồng xử lý logic (backend):
+- Nhận hotel_id từ frontend
+- Truy vấn bảng hotels → lấy name, description, star_rating, thumbnail_url
+- JOIN locations → lấy địa chỉ, tọa độ
+- JOIN hotel_amenities + amenities → danh sách tiện nghi
+- Truy vấn rooms → thông tin phòng
+- JOIN room_availability để check tình trạng trống theo ngày
+- JOIN reviews → tính AVG(rating), COUNT, lấy 3 đánh giá gần nhất
+- Tổng hợp dữ liệu → trả JSON về frontend
+
+4. Output JSON mẫu:
+{
+  "hotelId": 1003,
+  "name": "Khách sạn Biển Xanh",
+  "location": {
+    "name": "Mỹ Khê, Đà Nẵng",
+    "latitude": 16.0667,
+    "longitude": 108.2333
+  },
+  "description": "Khách sạn 3 sao gần biển Mỹ Khê, có hồ bơi và bữa sáng miễn phí.",
+  "distanceToBeach": 200,
+  "starRating": 3,
+  "amenities": ["Wifi", "Hồ bơi", "Bữa sáng miễn phí"],
+  "rooms": [
+    {
+      "roomId": 201,
+      "roomType": "Phòng đôi tiêu chuẩn",
+      "pricePerNight": 950000,
+      "maxGuests": 2,
+      "availability": true
+    }
+  ],
+  "rating": {
+    "average": 4.2,
+    "totalReviews": 78,
+    "recentReviews": [
+      {
+        "user": "Nguyễn Văn A",
+        "rating": 5,
+        "comment": "Khách sạn sạch sẽ, gần biển!"
+      }
+    ]
+  }
+}
+
+5. Bảng dữ liệu liên quan:
+- hotels: name, description, star_rating
+- locations: name, latitude, longitude
+- amenities, hotel_amenities
+- rooms, room_availability
+- reviews, users
+
+6. Truy vấn SQL mẫu:
+SELECT h.name, h.description, h.star_rating, h.distance_to_beach,
+       l.name AS location_name, l.latitude, l.longitude,
+       AVG(rv.rating) AS avg_rating, COUNT(rv.id) AS total_reviews
+FROM hotels h
+JOIN locations l ON h.location_id = l.id
+LEFT JOIN reviews rv ON rv.hotel_id = h.id
+WHERE h.id = 1003
+GROUP BY h.id, l.id;
+
+7. Metadata đề xuất cho vector DB:
+{
+  "function_id": "FR-002",
+  "type": "function_requirement",
+  "scope": "hotel_detail",
+  "keywords": ["chi tiết", "khách sạn", "phòng", "đánh giá", "vị trí"],
+  "related_use_cases": ["UC-006"]
+}

@@ -1,0 +1,80 @@
+
+Function Requirement: FR-001 – Tìm kiếm khách sạn
+
+1. Mô tả chức năng
+Cho phép người dùng tìm kiếm khách sạn theo các tiêu chí lọc như: vị trí, mức giá, tiện nghi, khoảng cách đến biển, đánh giá trung bình.
+Kết quả được trả về dưới dạng danh sách + gợi ý thông minh + có phân trang.
+
+2. Luồng xử lý logic (backend)
+Bước 1: Nhận request chứa các tham số lọc
+Bước 2: Truy vấn bảng hotels, rooms (JOIN với locations, room_availability)
+Bước 3: Lọc theo tiện nghi (JOIN hotel_amenities, amenities)
+Bước 4: Kiểm tra phòng còn trống theo ngày (room_availability)
+Bước 5: Tính trung bình đánh giá khách sạn (JOIN reviews)
+Bước 6: (Optional) Xử lý độ phù hợp theo lịch sử user
+Bước 7: Trả danh sách khách sạn phù hợp gồm tên, giá, tiện nghi, đánh giá
+
+3. Truy vấn SQL mẫu
+SELECT h.id, h.name, r.price_per_night, h.distance_to_beach, AVG(rv.rating) AS avg_rating
+FROM hotels h
+JOIN rooms r ON h.id = r.hotel_id
+JOIN room_availability ra ON r.id = ra.room_id
+JOIN locations l ON h.location_id = l.id
+LEFT JOIN reviews rv ON h.id = rv.hotel_id
+WHERE l.name = 'Đà Nẵng'
+  AND ra.date BETWEEN '2025-05-01' AND '2025-05-03'
+  AND ra.is_available = TRUE
+  AND r.price_per_night BETWEEN 800000 AND 1200000
+GROUP BY h.id, r.id
+ORDER BY avg_rating DESC
+LIMIT 20;
+
+4. Mapping bảng dữ liệu liên quan
+- Địa điểm: locations.name (FK trong hotels)
+- Giá: rooms.price_per_night
+- Tiện nghi: amenities.name qua hotel_amenities
+- Khoảng cách đến biển: hotels.distance_to_beach
+- Đánh giá trung bình: reviews.rating
+- Kiểm tra phòng trống: room_availability
+
+Tính năng mở rộng:
+
+UC-004: Gợi ý khách sạn tương tự
+- Theo vị trí gần (tọa độ ±5km)
+- Theo tiện nghi trùng
+- Theo rating cao
+- Dựa vào hành vi người dùng (search_history)
+
+UC-005: Lưu tìm kiếm yêu thích
+Bảng: saved_searches
+CREATE TABLE saved_searches (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  name VARCHAR(255),
+  search_params JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+search_params ví dụ:
+{
+  "location": "Đà Nẵng",
+  "checkIn": "2025-05-01",
+  "priceMax": 1000000,
+  "amenities": ["Wifi", "Hồ bơi"]
+}
+
+Dữ liệu lịch sử tìm kiếm:
+CREATE TABLE search_history (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  search_params JSONB,
+  searched_at TIMESTAMP DEFAULT NOW()
+);
+
+Metadata gợi ý:
+type: function_requirement
+function_id: FR-001
+scope: search_hotel
+keywords: tìm kiếm khách sạn, lọc, giá, đánh giá, địa điểm
+bảng_dữ_liệu: hotels, rooms, amenities, reviews, room_availability
+liên_quan: UC-001, UC-004, UC-005
